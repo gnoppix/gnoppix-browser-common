@@ -1,0 +1,192 @@
+diff --git a/services/settings/Attachments.sys.mjs b/services/settings/Attachments.sys.mjs
+index d6d1182083c8..03fddd13b7ec 100644
+--- a/services/settings/Attachments.sys.mjs
++++ b/services/settings/Attachments.sys.mjs
+@@ -158,6 +158,7 @@ export class Downloader {
+    * @param {Boolean} [options.fallbackToDump] Use the remote settings dump as a
+    *                                         potential source of the attachment.
+    *                                         (default: `false`)
++   * @param {string} options.serverUrl
+    * @throws {Downloader.DownloadError} if the file could not be fetched.
+    * @throws {Downloader.BadContentError} if the downloaded content integrity is not valid.
+    * @throws {Downloader.ServerInfoError} if the server response is not valid.
+@@ -318,6 +319,7 @@ export class Downloader {
+       fallbackToCache = false,
+       fallbackToDump = false,
+       avoidDownload = false,
++      serverUrl,
+     } = options || {};
+     if (!attachmentId) {
+       // Check for pre-condition. This should not happen, but it is explicitly
+@@ -378,6 +380,7 @@ export class Downloader {
+         const newBuffer = await this.downloadAsBytes(record, {
+           retries,
+           checkHash,
++          serverUrl,
+         });
+         const blob = new Blob([newBuffer]);
+         // Store in cache but don't wait for it before returning.
+@@ -548,6 +551,7 @@ export class Downloader {
+    * @param {Object} options Some download options.
+    * @param {Number} options.retries Number of times download should be retried (default: `3`)
+    * @param {Boolean} options.checkHash Check content integrity (default: `true`)
++   * @param {String} options.serverUrl
+    * @throws {Downloader.DownloadError} if the file could not be fetched.
+    * @throws {Downloader.BadContentError} if the downloaded content integrity is not valid.
+    * @returns {ArrayBuffer} the file content.
+@@ -556,17 +560,17 @@ export class Downloader {
+     const {
+       attachment: { location, hash, size },
+     } = record;
++    const { retries = 3, checkHash = true, serverUrl } = options;
+ 
+     let baseURL;
+     try {
+-      baseURL = await lazy.Utils.baseAttachmentsURL();
++      baseURL = await lazy.Utils.baseAttachmentsURL(serverUrl);
+     } catch (error) {
+       throw new Downloader.ServerInfoError(error);
+     }
+ 
+     const remoteFileUrl = baseURL + location;
+ 
+-    const { retries = 3, checkHash = true } = options;
+     let retried = 0;
+     while (true) {
+       try {
+diff --git a/services/settings/RemoteSettingsClient.sys.mjs b/services/settings/RemoteSettingsClient.sys.mjs
+index 6b7c441c8d91..8ce70fe11dca 100644
+--- a/services/settings/RemoteSettingsClient.sys.mjs
++++ b/services/settings/RemoteSettingsClient.sys.mjs
+@@ -309,6 +309,7 @@ export class RemoteSettingsClient extends EventEmitter {
+       localFields = [],
+       keepAttachmentsIds = [],
+       lastCheckTimePref,
++      serverUrl,
+     } = {}
+   ) {
+     // Remote Settings cannot be used in child processes (no access to disk,
+@@ -338,6 +339,7 @@ export class RemoteSettingsClient extends EventEmitter {
+     this._lastCheckTimePref = lastCheckTimePref;
+     this._verifier = null;
+     this._syncRunning = false;
++    this._serverUrl = serverUrl;
+ 
+     // This attribute allows signature verification to be disabled, when running tests
+     // or when pulling data from a dev server.
+@@ -379,9 +381,12 @@ export class RemoteSettingsClient extends EventEmitter {
+   }
+ 
+   httpClient() {
+-    const api = new lazy.KintoHttpClient(lazy.Utils.SERVER_URL, {
+-      fetchFunc: lazy.Utils.fetch, // Use fetch() wrapper.
+-    });
++    const api = new lazy.KintoHttpClient(
++      this._serverUrl || lazy.Utils.SERVER_URL,
++      {
++        fetchFunc: lazy.Utils.fetch, // Use fetch() wrapper.
++      }
++    );
+     return api.bucket(this.bucketName).collection(this.collectionName);
+   }
+ 
+@@ -609,7 +614,7 @@ export class RemoteSettingsClient extends EventEmitter {
+     // We want to know which timestamp we are expected to obtain in order to leverage
+     // cache busting. We don't provide ETag because we don't want a 304.
+     const { changes } = await lazy.Utils.fetchLatestChanges(
+-      lazy.Utils.SERVER_URL,
++      this._serverUrl || lazy.Utils.SERVER_URL,
+       {
+         filters: {
+           collection: this.collectionName,
+diff --git a/services/settings/Utils.sys.mjs b/services/settings/Utils.sys.mjs
+index 12fef6cde815..3be4356a4060 100644
+--- a/services/settings/Utils.sys.mjs
++++ b/services/settings/Utils.sys.mjs
+@@ -295,9 +295,9 @@ export var Utils = {
+    * const attachmentsURL = await Downloader.baseAttachmentsURL();
+    * console.log(attachmentsURL);
+    */
+-  async baseAttachmentsURL() {
+-    if (!_cdnURLs[Utils.SERVER_URL]) {
+-      const resp = await Utils.fetch(`${Utils.SERVER_URL}/`);
++  async baseAttachmentsURL(serverUrl = Utils.SERVER_URL) {
++    if (!_cdnURLs[serverUrl]) {
++      const resp = await Utils.fetch(`${serverUrl}/`);
+       const serverInfo = await resp.json();
+       // Server capabilities expose attachments configuration.
+       const {
+@@ -306,10 +306,9 @@ export var Utils = {
+         },
+       } = serverInfo;
+       // Make sure the URL always has a trailing slash.
+-      _cdnURLs[Utils.SERVER_URL] =
+-        base_url + (base_url.endsWith("/") ? "" : "/");
++      _cdnURLs[serverUrl] = base_url + (base_url.endsWith("/") ? "" : "/");
+     }
+-    return _cdnURLs[Utils.SERVER_URL];
++    return _cdnURLs[serverUrl];
+   },
+ 
+   /**
+diff --git a/toolkit/components/translations/actors/TranslationsParent.sys.mjs b/toolkit/components/translations/actors/TranslationsParent.sys.mjs
+index de242af9add4..631faa77fa00 100644
+--- a/toolkit/components/translations/actors/TranslationsParent.sys.mjs
++++ b/toolkit/components/translations/actors/TranslationsParent.sys.mjs
+@@ -1545,7 +1545,9 @@ export class TranslationsParent extends JSWindowActorParent {
+     }
+ 
+     /** @type {RemoteSettingsClient} */
+-    const client = lazy.RemoteSettings("translations-models");
++    const client = lazy.RemoteSettings("translations-models", {
++      serverUrl: "https://firefox.settings.services.mozilla.com/v1",
++    });
+     TranslationsParent.#translationModelsRemoteClient = client;
+     client.on("sync", TranslationsParent.#handleTranslationsModelsSync);
+ 
+@@ -1911,7 +1913,10 @@ export class TranslationsParent extends JSWindowActorParent {
+ 
+       /** @type {{buffer: ArrayBuffer}} */
+       const { buffer } = await client.attachments.download(
+-        await TranslationsParent.#bergamotWasmRecord
++        await TranslationsParent.#bergamotWasmRecord,
++        {
++          serverUrl: "https://firefox.settings.services.mozilla.com/v1",
++        }
+       );
+ 
+       const duration = Date.now() - start;
+@@ -1988,7 +1993,9 @@ export class TranslationsParent extends JSWindowActorParent {
+     )) {
+       const download = () => {
+         lazy.console.log("Downloading record", record.name, record.id);
+-        return client.attachments.download(record);
++        return client.attachments.download(record, {
++          serverUrl: "https://firefox.settings.services.mozilla.com/v1",
++        });
+       };
+       queue.push({ download });
+     }
+@@ -2012,7 +2019,10 @@ export class TranslationsParent extends JSWindowActorParent {
+         onFailure: () => {
+           console.error("Failed to download", record.name);
+         },
+-        download: () => client.attachments.download(record),
++        download: () =>
++          client.attachments.download(record, {
++            serverUrl: "https://firefox.settings.services.mozilla.com/v1",
++          }),
+       });
+     }
+ 
+@@ -2304,7 +2314,9 @@ export class TranslationsParent extends JSWindowActorParent {
+         await chaosMode(1 / 3);
+ 
+         /** @type {{buffer: ArrayBuffer }} */
+-        const { buffer } = await client.attachments.download(record);
++        const { buffer } = await client.attachments.download(record, {
++          serverUrl: "https://firefox.settings.services.mozilla.com/v1",
++        });
+ 
+         results[record.fileType] = {
+           buffer,
