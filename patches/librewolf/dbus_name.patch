@@ -29,19 +29,6 @@ index aad9d7054af8..a926d8b6abdc 100644
  
    static auto sDBusValidatePathName = (bool (*)(const char*, DBusError*))dlsym(
        RTLD_DEFAULT, "dbus_validate_path");
-@@ -128,7 +128,7 @@ nsresult nsDBusRemoteClient::DoSendDBusCommandLine(const char* aProfile,
-   }
- 
-   nsAutoCString remoteInterfaceName;
--  remoteInterfaceName = nsPrintfCString("org.mozilla.%s", appName.get());
-+  remoteInterfaceName = nsPrintfCString("org.gnoppix.%s", appName.get());
- 
-   LOG("  DBus destination: %s\n", destinationName.get());
-   LOG("  DBus path: %s\n", pathName.get());
-diff --git a/toolkit/components/remote/nsDBusRemoteServer.cpp b/toolkit/components/remote/nsDBusRemoteServer.cpp
-index 4afb8381d0bc..bd927334b817 100644
---- a/toolkit/components/remote/nsDBusRemoteServer.cpp
-+++ b/toolkit/components/remote/nsDBusRemoteServer.cpp
 @@ -29,7 +29,7 @@ static const char* introspect_template =
      "1.0//EN\"\n"
      "\"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd\">\n"
