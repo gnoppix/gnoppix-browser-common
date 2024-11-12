@@ -54,8 +54,8 @@ sed -i 's/lib\/librewolf/lib\/gnoppix-browser/g' librewolf/mozilla_dirs.patch
 sed -i 's/lib64\/librewolf/lib64\/gnoppix-browser/g' librewolf/mozilla_dirs.patch
 sed -i 's/librewolf/gnoppix/g' librewolf/mozilla_dirs.patch
 
-rebrand "\/io\/gitlab\/" "\/org\/gnoppixos\/"
-rebrand "io.gitlab." "org.gnoppixos."
+rebrand "\/io\/gitlab\/" "\/org\/gnoppix\/"
+rebrand "io.gitlab." "org.gnoppix."
 rebrand LibreWolf Gnoppix
 rebrand Librewolf Gnoppix
 rebrand librewolf gnoppix-browser

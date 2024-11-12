@@ -7,7 +7,7 @@ index aad9d7054af8..a926d8b6abdc 100644
  
    aDestinationName =
 -      nsPrintfCString("org.mozilla.%s.%s", aProgram, profileName.get());
-+      nsPrintfCString("org.gnoppixos.%s.%s", aProgram, profileName.get());
++      nsPrintfCString("org.gnoppix.%s.%s", aProgram, profileName.get());
    if (aDestinationName.Length() > DBUS_MAXIMUM_NAME_LENGTH)
      aDestinationName.Truncate(DBUS_MAXIMUM_NAME_LENGTH);
  
@@ -16,7 +16,7 @@ index aad9d7054af8..a926d8b6abdc 100644
      // We don't have a valid busName yet - try to create a default one.
      aDestinationName =
 -        nsPrintfCString("org.mozilla.%s.%s", aProgram, "default");
-+        nsPrintfCString("org.gnoppixos.%s.%s", aProgram, "default");
++        nsPrintfCString("org.gnoppix.%s.%s", aProgram, "default");
      if (!sDBusValidateBusName(aDestinationName.get(), nullptr)) {
        // We failed completelly to get a valid bus name - just quit
        // to prevent crash at dbus_bus_request_name().
@@ -25,7 +25,7 @@ index aad9d7054af8..a926d8b6abdc 100644
  
    nsAutoCString pathName;
 -  pathName = nsPrintfCString("/org/mozilla/%s/Remote", appName.get());
-+  pathName = nsPrintfCString("/org/gnoppixos/%s/Remote", appName.get());
++  pathName = nsPrintfCString("/org/gnoppix/%s/Remote", appName.get());
  
    static auto sDBusValidatePathName = (bool (*)(const char*, DBusError*))dlsym(
        RTLD_DEFAULT, "dbus_validate_path");
@@ -34,7 +34,7 @@ index aad9d7054af8..a926d8b6abdc 100644
  
    nsAutoCString remoteInterfaceName;
 -  remoteInterfaceName = nsPrintfCString("org.mozilla.%s", appName.get());
-+  remoteInterfaceName = nsPrintfCString("org.gnoppixos.%s", appName.get());
++  remoteInterfaceName = nsPrintfCString("org.gnoppix.%s", appName.get());
  
    LOG("  DBus destination: %s\n", destinationName.get());
    LOG("  DBus path: %s\n", pathName.get());
@@ -47,7 +47,7 @@ index 4afb8381d0bc..bd927334b817 100644
      "\"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd\">\n"
      "<node>\n"
 -    " <interface name=\"org.mozilla.%s\">\n"
-+    " <interface name=\"org.gnoppixos.%s\">\n"
++    " <interface name=\"org.gnoppix.%s\">\n"
      "   <method name=\"OpenURL\">\n"
      "     <arg name=\"url\" direction=\"in\" type=\"ay\"/>\n"
      "   </method>\n"
@@ -56,7 +56,7 @@ index 4afb8381d0bc..bd927334b817 100644
                                         const gchar* aMethodName,
                                         Span<const gchar> aParam) {
 -  nsPrintfCString ourInterfaceName("org.mozilla.%s", mAppName.get());
-+  nsPrintfCString ourInterfaceName("org.gnoppixos.%s", mAppName.get());
++  nsPrintfCString ourInterfaceName("org.gnoppix.%s", mAppName.get());
  
    if ((strcmp("OpenURL", aMethodName) != 0) ||
        (strcmp(ourInterfaceName.get(), aInterfaceName) != 0)) {
@@ -65,7 +65,7 @@ index 4afb8381d0bc..bd927334b817 100644
  
  void nsDBusRemoteServer::OnBusAcquired(GDBusConnection* aConnection) {
 -  mPathName = nsPrintfCString("/org/mozilla/%s/Remote", mAppName.get());
-+  mPathName = nsPrintfCString("/org/gnoppixos/%s/Remote", mAppName.get());
++  mPathName = nsPrintfCString("/org/gnoppix/%s/Remote", mAppName.get());
    static auto sDBusValidatePathName = (bool (*)(const char*, DBusError*))dlsym(
        RTLD_DEFAULT, "dbus_validate_path");
    if (!sDBusValidatePathName ||
@@ -75,7 +75,7 @@ index 4afb8381d0bc..bd927334b817 100644
  
 -  nsPrintfCString busName("org.mozilla.%s.%s", mAppName.get(),
 -                          profileName.get());
-+  nsPrintfCString busName("org.gnoppixos.%s.%s", mAppName.get(), profileName.get());
++  nsPrintfCString busName("org.gnoppix.%s.%s", mAppName.get(), profileName.get());
    if (busName.Length() > DBUS_MAXIMUM_NAME_LENGTH) {
      busName.Truncate(DBUS_MAXIMUM_NAME_LENGTH);
    }
@@ -84,7 +84,7 @@ index 4afb8381d0bc..bd927334b817 100644
    // We don't have a valid busName yet - try to create a default one.
    if (!sDBusValidateBusName(busName.get(), nullptr)) {
 -    busName = nsPrintfCString("org.mozilla.%s.%s", mAppName.get(), "default");
-+    busName = nsPrintfCString("org.gnoppixos.%s.%s", mAppName.get(), "default");
++    busName = nsPrintfCString("org.gnoppix.%s.%s", mAppName.get(), "default");
      if (!sDBusValidateBusName(busName.get(), nullptr)) {
        // We failed completelly to get a valid bus name - just quit
        // to prevent crash at dbus_bus_request_name().
